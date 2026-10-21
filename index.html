@@ -4,193 +4,196 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird</title>
+    <title>Car Dodge</title>
     <style>
         body {
             margin: 0;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             background: #222;
+            color: white;
             font-family: Arial, sans-serif;
+            text-align: center;
         }
 
         canvas {
-            border: 3px solid white;
+            display: block;
+            margin: 20px auto;
             max-width: 95vw;
-            max-height: 90vh;
+            max-height: 75vh;
+            background: #555;
+            border: 3px solid white;
         }
+
+        p { margin: 8px; }
     </style>
 </head>
 <body>
-<canvas id="game" width="400" height="600"></canvas>
+    <h2>Car Dodge</h2>
+    <p>Use ← → arrow keys or A / D to move</p>
+    <p>Score: <span id="score">0</span></p>
 
-<script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+    <canvas id="game" width="350" height="500"></canvas>
+    <p id="message">Press any arrow key to start!</p>
 
-let bird, pipes, score, frame, gameOver;
+    <script>
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+        const scoreText = document.getElementById("score");
+        const message = document.getElementById("message");
 
-function reset() {
-    bird = { x: 80, y: 250, velocity: 0 };
-    pipes = [];
-    score = 0;
-    frame = 0;
-    gameOver = false;
-}
+        const lanes = [65, 175, 285];
+        let player, obstacles, score, speed, frame;
+        let running = false;
+        let gameOver = false;
+        const keys = {};
 
-reset();
-
-function flap() {
-    if (gameOver) {
-        reset();
-        return;
-    }
-    bird.velocity = -6;
-}
-
-document.addEventListener("keydown", e => {
-    if (e.code === "Space" || e.code === "ArrowUp") {
-        e.preventDefault();
-        flap();
-    }
-});
-
-canvas.addEventListener("click", flap);
-canvas.addEventListener("touchstart", e => {
-    e.preventDefault();
-    flap();
-}, { passive: false });
-
-function drawBird() {
-    ctx.fillStyle = "#ffd43b";
-    ctx.beginPath();
-    ctx.arc(bird.x, bird.y, 14, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    ctx.arc(bird.x + 5, bird.y - 4, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#222";
-    ctx.beginPath();
-    ctx.arc(bird.x + 7, bird.y - 4, 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#ff922b";
-    ctx.beginPath();
-    ctx.moveTo(bird.x + 12, bird.y);
-    ctx.lineTo(bird.x + 23, bird.y + 4);
-    ctx.lineTo(bird.x + 12, bird.y + 7);
-    ctx.fill();
-}
-
-function endGame() {
-    gameOver = true;
-}
-
-function update() {
-    if (!gameOver) {
-        frame++;
-
-        bird.velocity += 0.3;
-        bird.y += bird.velocity;
-
-        if (frame % 95 === 0) {
-            const gap = 155;
-            const top = Math.random() * 260 + 40;
-            pipes.push({
-                x: canvas.width,
-                top,
-                bottom: top + gap,
-                scored: false
-            });
+        function reset() {
+            player = { lane: 1, y: 400, width: 42, height: 70 };
+            obstacles = [];
+            score = 0;
+            speed = 3;
+            frame = 0;
+            running = true;
+            gameOver = false;
+            message.textContent = "Avoid the other cars!";
         }
 
-        pipes.forEach(pipe => {
-            pipe.x -= 2.5;
-
-            if (!pipe.scored && pipe.x + 55 < bird.x) {
-                score++;
-                pipe.scored = true;
+        document.addEventListener("keydown", e => {
+            if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(e.key)) {
+                e.preventDefault();
             }
 
-            const hitPipe =
-                bird.x + 12 > pipe.x &&
-                bird.x - 12 < pipe.x + 55 &&
-                (bird.y - 12 < pipe.top ||
-                 bird.y + 12 > pipe.bottom);
+            if (gameOver) {
+                reset();
+                return;
+            }
 
-            if (hitPipe) endGame();
+            keys[e.key] = true;
+
+            if (!running) reset();
+
+            if (e.repeat) return;
+
+            if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") {
+                player.lane = Math.max(0, player.lane - 1);
+            }
+
+            if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") {
+                player.lane = Math.min(2, player.lane + 1);
+            }
         });
 
-        pipes = pipes.filter(pipe => pipe.x > -60);
+        document.addEventListener("keyup", e => {
+            keys[e.key] = false;
+        });
 
-        if (bird.y - 14 < 0 || bird.y + 14 > canvas.height) {
-            endGame();
+        function drawCar(x, y, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x - 19, y, 38, 62);
+
+            ctx.fillStyle = "#bde0fe";
+            ctx.fillRect(x - 13, y + 9, 26, 15);
+            ctx.fillRect(x - 13, y + 36, 26, 12);
+
+            ctx.fillStyle = "#111";
+            ctx.fillRect(x - 23, y + 9, 5, 15);
+            ctx.fillRect(x + 18, y + 9, 5, 15);
+            ctx.fillRect(x - 23, y + 40, 5, 15);
+            ctx.fillRect(x + 18, y + 40, 5, 15);
         }
-    }
-}
 
-function draw() {
-    ctx.fillStyle = "#70c5ce";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+        function drawRoad() {
+            ctx.fillStyle = "#555";
+            ctx.fillRect(0, 0, 350, 500);
 
-    // Clouds
-    ctx.fillStyle = "rgba(255,255,255,0.65)";
-    [[65, 100], [280, 170], [190, 55]].forEach(([x, y]) => {
-        ctx.beginPath();
-        ctx.arc(x, y, 18, 0, Math.PI * 2);
-        ctx.arc(x + 20, y - 8, 23, 0, Math.PI * 2);
-        ctx.arc(x + 42, y, 16, 0, Math.PI * 2);
-        ctx.fill();
-    });
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(5, 0, 4, 500);
+            ctx.fillRect(341, 0, 4, 500);
 
-    // Pipes
-    pipes.forEach(pipe => {
-        ctx.fillStyle = "#58b947";
-        ctx.fillRect(pipe.x, 0, 55, pipe.top);
-        ctx.fillRect(pipe.x, pipe.bottom, 55,
-            canvas.height - pipe.bottom);
+            ctx.strokeStyle = "#ddd";
+            ctx.lineWidth = 3;
+            ctx.setLineDash([25, 25]);
+            ctx.lineDashOffset = -frame * speed;
 
-        ctx.fillStyle = "#39852e";
-        ctx.fillRect(pipe.x - 4, pipe.top - 18, 63, 18);
-        ctx.fillRect(pipe.x - 4, pipe.bottom, 63, 18);
-    });
+            ctx.beginPath();
+            ctx.moveTo(120, 0);
+            ctx.lineTo(120, 500);
+            ctx.moveTo(230, 0);
+            ctx.lineTo(230, 500);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
 
-    drawBird();
+        function update() {
+            if (!running || gameOver) return;
 
-    ctx.fillStyle = "white";
-    ctx.strokeStyle = "#333";
-    ctx.lineWidth = 3;
-    ctx.font = "bold 36px Arial";
-    ctx.textAlign = "center";
-    ctx.strokeText(score, canvas.width / 2, 50);
-    ctx.fillText(score, canvas.width / 2, 50);
+            frame++;
+            speed += 0.001;
+            score++;
+            scoreText.textContent = Math.floor(score / 5);
 
-    if (gameOver) {
-        ctx.fillStyle = "rgba(0,0,0,0.55)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (frame % Math.max(30, Math.floor(85 - speed * 5)) === 0) {
+                const lane = Math.floor(Math.random() * 3);
+                obstacles.push({ lane, y: -70 });
+            }
 
-        ctx.fillStyle = "white";
-        ctx.font = "bold 32px Arial";
-        ctx.fillText("Game Over!", 200, 260);
-        ctx.font = "20px Arial";
-        ctx.fillText("Score: " + score, 200, 300);
-        ctx.fillText("Click or press Space", 200, 345);
-        ctx.fillText("to restart", 200, 375);
-    }
-}
+            obstacles.forEach(car => car.y += speed);
+            obstacles = obstacles.filter(car => car.y < 520);
 
-function loop() {
-    update();
-    draw();
-    requestAnimationFrame(loop);
-}
+            for (const car of obstacles) {
+                if (car.lane === player.lane &&
+                    car.y + 62 > player.y + 8 &&
+                    car.y < player.y + player.height - 8) {
+                    gameOver = true;
+                    message.textContent =
+                        "Game Over! Final score: " +
+                        Math.floor(score / 5) +
+                        " — Press any key to restart";
+                }
+            }
+        }
 
-loop();
-</script>
+        function draw() {
+            drawRoad();
+
+            obstacles.forEach(car => {
+                drawCar(lanes[car.lane], car.y, "#e63946");
+            });
+
+            drawCar(lanes[player.lane], player.y, "#3a86ff");
+
+            if (!running) {
+                ctx.fillStyle = "rgba(0,0,0,0.6)";
+                ctx.fillRect(0, 0, 350, 500);
+                ctx.fillStyle = "white";
+                ctx.textAlign = "center";
+                ctx.font = "24px Arial";
+                ctx.fillText("CAR DODGE", 175, 220);
+                ctx.font = "16px Arial";
+                ctx.fillText("Press an arrow key to start", 175, 260);
+            }
+
+            if (gameOver) {
+                ctx.fillStyle = "rgba(0,0,0,0.6)";
+                ctx.fillRect(0, 0, 350, 500);
+                ctx.fillStyle = "white";
+                ctx.textAlign = "center";
+                ctx.font = "28px Arial";
+                ctx.fillText("CRASH!", 175, 230);
+                ctx.font = "18px Arial";
+                ctx.fillText("Score: " + Math.floor(score / 5), 175, 270);
+                ctx.fillText("Press any key to retry", 175, 310);
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        reset();
+        running = false;
+        loop();
+    </script>
 </body>
 </html>
