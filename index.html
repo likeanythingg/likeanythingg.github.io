@@ -4,35 +4,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Car Dodge</title>
+    <title>Eagle Ride</title>
     <style>
         body {
             margin: 0;
             background: #222;
             color: white;
-            font-family: Arial, sans-serif;
             text-align: center;
+            font-family: Arial, sans-serif;
         }
 
         canvas {
+            background: #87ceeb;
             display: block;
-            margin: 20px auto;
-            max-width: 95vw;
-            max-height: 75vh;
-            background: #555;
-            border: 3px solid white;
+            margin: auto;
+            max-width: 100%;
         }
-
-        p { margin: 8px; }
     </style>
 </head>
 <body>
-    <h2>Car Dodge</h2>
-    <p>Use ← → arrow keys or A / D to move</p>
+    <h2>Eagle Ride</h2>
+    <p>Use ← → to dodge the trees!</p>
     <p>Score: <span id="score">0</span></p>
-
-    <canvas id="game" width="350" height="500"></canvas>
-    <p id="message">Press any arrow key to start!</p>
+    <canvas id="game" width="400" height="500"></canvas>
+    <p id="message">Press an arrow key to start</p>
 
     <script>
         const canvas = document.getElementById("game");
@@ -40,148 +35,98 @@
         const scoreText = document.getElementById("score");
         const message = document.getElementById("message");
 
-        const lanes = [65, 175, 285];
-        let player, obstacles, score, speed, frame;
-        let running = false;
-        let gameOver = false;
-        const keys = {};
+        let eagle, trees, score, playing, dead;
 
         function reset() {
-            player = { lane: 1, y: 400, width: 42, height: 70 };
-            obstacles = [];
+            eagle = 200;
+            trees = [];
             score = 0;
-            speed = 3;
-            frame = 0;
-            running = true;
-            gameOver = false;
-            message.textContent = "Avoid the other cars!";
+            playing = false;
+            dead = false;
+            message.textContent = "Press an arrow key to start";
         }
 
         document.addEventListener("keydown", e => {
-            if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(e.key)) {
+            if (["ArrowLeft", "ArrowRight"].includes(e.key))
                 e.preventDefault();
+
+            if (dead) reset();
+
+            if (!playing) {
+                playing = true;
+                message.textContent = "Dodge the trees!";
             }
 
-            if (gameOver) {
-                reset();
-                return;
-            }
+            if (e.key === "ArrowLeft") eagle -= 25;
+            if (e.key === "ArrowRight") eagle += 25;
 
-            keys[e.key] = true;
-
-            if (!running) reset();
-
-            if (e.repeat) return;
-
-            if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") {
-                player.lane = Math.max(0, player.lane - 1);
-            }
-
-            if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") {
-                player.lane = Math.min(2, player.lane + 1);
-            }
+            eagle = Math.max(30, Math.min(370, eagle));
         });
-
-        document.addEventListener("keyup", e => {
-            keys[e.key] = false;
-        });
-
-        function drawCar(x, y, color) {
-            ctx.fillStyle = color;
-            ctx.fillRect(x - 19, y, 38, 62);
-
-            ctx.fillStyle = "#bde0fe";
-            ctx.fillRect(x - 13, y + 9, 26, 15);
-            ctx.fillRect(x - 13, y + 36, 26, 12);
-
-            ctx.fillStyle = "#111";
-            ctx.fillRect(x - 23, y + 9, 5, 15);
-            ctx.fillRect(x + 18, y + 9, 5, 15);
-            ctx.fillRect(x - 23, y + 40, 5, 15);
-            ctx.fillRect(x + 18, y + 40, 5, 15);
-        }
-
-        function drawRoad() {
-            ctx.fillStyle = "#555";
-            ctx.fillRect(0, 0, 350, 500);
-
-            ctx.fillStyle = "#fff";
-            ctx.fillRect(5, 0, 4, 500);
-            ctx.fillRect(341, 0, 4, 500);
-
-            ctx.strokeStyle = "#ddd";
-            ctx.lineWidth = 3;
-            ctx.setLineDash([25, 25]);
-            ctx.lineDashOffset = -frame * speed;
-
-            ctx.beginPath();
-            ctx.moveTo(120, 0);
-            ctx.lineTo(120, 500);
-            ctx.moveTo(230, 0);
-            ctx.lineTo(230, 500);
-            ctx.stroke();
-            ctx.setLineDash([]);
-        }
 
         function update() {
-            if (!running || gameOver) return;
+            if (!playing || dead) return;
 
-            frame++;
-            speed += 0.001;
             score++;
-            scoreText.textContent = Math.floor(score / 5);
+            scoreText.textContent = Math.floor(score / 10);
 
-            if (frame % Math.max(30, Math.floor(85 - speed * 5)) === 0) {
-                const lane = Math.floor(Math.random() * 3);
-                obstacles.push({ lane, y: -70 });
+            if (Math.random() < 0.035) {
+                trees.push({
+                    x: Math.random() * 360 + 20,
+                    y: -30,
+                    size: 20
+                });
             }
 
-            obstacles.forEach(car => car.y += speed);
-            obstacles = obstacles.filter(car => car.y < 520);
+            trees.forEach(tree => {
+                tree.y += 3 + score / 500;
+                tree.size += 0.08;
 
-            for (const car of obstacles) {
-                if (car.lane === player.lane &&
-                    car.y + 62 > player.y + 8 &&
-                    car.y < player.y + player.height - 8) {
-                    gameOver = true;
+                if (Math.abs(tree.x - eagle) < tree.size + 8 &&
+                    Math.abs(tree.y - 400) < tree.size + 12) {
+                    dead = true;
                     message.textContent =
-                        "Game Over! Final score: " +
-                        Math.floor(score / 5) +
-                        " — Press any key to restart";
+                        "You crashed! Press any key to restart.";
                 }
-            }
+            });
+
+            trees = trees.filter(tree => tree.y < 550);
         }
 
         function draw() {
-            drawRoad();
+            ctx.fillStyle = "#87ceeb";
+            ctx.fillRect(0, 0, 400, 500);
 
-            obstacles.forEach(car => {
-                drawCar(lanes[car.lane], car.y, "#e63946");
+            // Forest
+            ctx.fillStyle = "#398044";
+            ctx.fillRect(0, 0, 35, 500);
+            ctx.fillRect(365, 0, 35, 500);
+
+            // Trees coming toward you
+            trees.forEach(tree => {
+                ctx.fillStyle = "#754321";
+                ctx.fillRect(tree.x - 4, tree.y, 8, tree.size);
+
+                ctx.fillStyle = "#176b35";
+                ctx.beginPath();
+                ctx.moveTo(tree.x, tree.y - tree.size);
+                ctx.lineTo(tree.x - tree.size, tree.y + tree.size);
+                ctx.lineTo(tree.x + tree.size, tree.y + tree.size);
+                ctx.fill();
             });
 
-            drawCar(lanes[player.lane], player.y, "#3a86ff");
+            // Eagle
+            ctx.font = "36px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("🦅", eagle, 410);
 
-            if (!running) {
+            if (dead) {
                 ctx.fillStyle = "rgba(0,0,0,0.6)";
-                ctx.fillRect(0, 0, 350, 500);
+                ctx.fillRect(0, 0, 400, 500);
                 ctx.fillStyle = "white";
-                ctx.textAlign = "center";
-                ctx.font = "24px Arial";
-                ctx.fillText("CAR DODGE", 175, 220);
-                ctx.font = "16px Arial";
-                ctx.fillText("Press an arrow key to start", 175, 260);
-            }
-
-            if (gameOver) {
-                ctx.fillStyle = "rgba(0,0,0,0.6)";
-                ctx.fillRect(0, 0, 350, 500);
-                ctx.fillStyle = "white";
-                ctx.textAlign = "center";
-                ctx.font = "28px Arial";
-                ctx.fillText("CRASH!", 175, 230);
+                ctx.font = "30px Arial";
+                ctx.fillText("CRASH!", 200, 230);
                 ctx.font = "18px Arial";
-                ctx.fillText("Score: " + Math.floor(score / 5), 175, 270);
-                ctx.fillText("Press any key to retry", 175, 310);
+                ctx.fillText("Score: " + Math.floor(score / 10), 200, 265);
             }
         }
 
@@ -192,7 +137,6 @@
         }
 
         reset();
-        running = false;
         loop();
     </script>
 </body>
